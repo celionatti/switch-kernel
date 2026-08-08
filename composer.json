@@ -1,0 +1,30 @@
+{
+    "name": "switch/kernel",
+    "description": "Switch Framework HTTP Application Kernel & PSR-15 Middleware Engine",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "psr/http-message": "^2.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0",
+        "switch/http-message": "*"
+    },
+    "suggest": {
+        "switch/container": "Dependency Injection Container support",
+        "switch/router": "HTTP Routing support",
+        "switch/events": "Lifecycle Event Dispatching support",
+        "switch/config": "Application configuration support"
+    },
+    "autoload": {
+        "psr-4": {
+            "Switch\\Kernel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Switch\\Kernel\\Tests\\": "tests/"
+        }
+    }
+}
