@@ -49,6 +49,16 @@ class RoutingMiddleware implements MiddlewareInterface
                 {
                     $handler = $this->handler;
 
+                    // Resolve 'Controller@method' string syntax
+                    if (is_string($handler) && str_contains($handler, '@')) {
+                        [$class, $method] = explode('@', $handler, 2);
+                        $instance = $this->container !== null && $this->container->has($class)
+                            ? $this->container->get($class)
+                            : new $class();
+                        $handler = [$instance, $method];
+                    }
+
+                    // Resolve [Controller::class, 'method'] array syntax
                     if (is_array($handler) && count($handler) === 2 && is_string($handler[0])) {
                         [$class, $method] = $handler;
                         $instance = $this->container !== null && $this->container->has($class)
