@@ -57,7 +57,27 @@ class App implements RequestHandlerInterface
             $this->eventDispatcher->dispatch(new RequestReceivedEvent($request));
         }
 
-        $stack = $this->middlewareStack;
+        $stack = [];
+
+        // Auto-detect and register switch/error-handler if installed
+        if (class_exists(\Switch\ErrorHandler\ErrorHandler::class)) {
+            $debug = true;
+            if ($this->container !== null && $this->container->has(\Switch\Config\Config::class)) {
+                /** @var \Switch\Config\Config $config */
+                $config = $this->container->get(\Switch\Config\Config::class);
+                $debug = (bool) $config->get('app.debug', true);
+            } elseif (defined('APP_DEBUG')) {
+                $debug = (bool) APP_DEBUG;
+            }
+
+            $errorHandler = \Switch\ErrorHandler\ErrorHandler::register($debug);
+            $stack[] = new \Switch\ErrorHandler\Middleware\ErrorHandlerMiddleware($errorHandler);
+        }
+
+        foreach ($this->middlewareStack as $middleware) {
+            $stack[] = $middleware;
+        }
+
         if ($this->router !== null) {
             $stack[] = new RoutingMiddleware($this->router, $this->container);
         }
