@@ -23,11 +23,105 @@ class App implements RequestHandlerInterface
      */
     private array $middlewareStack = [];
 
+    private ?string $basePath = null;
+
+    private bool $routesLoaded = false;
+
+    /**
+     * Callback to configure the RouteLoader before loading.
+     *
+     * @var callable|null
+     */
+    private $routeConfigurator = null;
+
     public function __construct(
         private readonly ?ContainerInterface $container = null,
         private readonly ?EventDispatcherInterface $eventDispatcher = null,
         private readonly ?object $router = null
     ) {
+    }
+
+    /**
+     * Set the application base path (project root directory).
+     * Route files will be loaded from {basePath}/routes/
+     */
+    public function setBasePath(string $basePath): self
+    {
+        $this->basePath = rtrim($basePath, '/\\');
+        return $this;
+    }
+
+    public function getBasePath(): ?string
+    {
+        return $this->basePath;
+    }
+
+    /**
+     * Register a callback to configure the RouteLoader before route files are loaded.
+     *
+     * The callback receives the RouteLoader instance:
+     *   $app->configureRoutes(function (RouteLoader $loader) {
+     *       $loader->register('admin', ['prefix' => '/admin', 'middleware' => ['auth']]);
+     *       $loader->apiMiddleware(['throttle:60']);
+     *   });
+     */
+    public function configureRoutes(callable $callback): self
+    {
+        $this->routeConfigurator = $callback;
+        return $this;
+    }
+
+    /**
+     * Load route files from the routes/ directory.
+     * Automatically loads web.php and api.php if they exist.
+     * Called automatically before handling a request.
+     */
+    public function loadRoutes(): self
+    {
+        if ($this->routesLoaded) {
+            return $this;
+        }
+
+        if ($this->router === null || !class_exists(\Switch\Router\RouteLoader::class)) {
+            return $this;
+        }
+
+        $routesPath = $this->resolveRoutesPath();
+        if ($routesPath === null || !is_dir($routesPath)) {
+            return $this;
+        }
+
+        /** @var \Switch\Router\Router $router */
+        $router = $this->router;
+        $loader = new \Switch\Router\RouteLoader($router, $routesPath);
+
+        // Allow user to configure the loader (register extra files, set middleware, etc.)
+        if ($this->routeConfigurator !== null) {
+            ($this->routeConfigurator)($loader);
+        }
+
+        $loader->load();
+        $this->routesLoaded = true;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the routes directory path.
+     */
+    private function resolveRoutesPath(): ?string
+    {
+        if ($this->basePath !== null) {
+            return $this->basePath . DIRECTORY_SEPARATOR . 'routes';
+        }
+
+        // Auto-detect: try common locations relative to working directory
+        $cwd = getcwd();
+        if ($cwd !== false && is_dir($cwd . DIRECTORY_SEPARATOR . 'routes')) {
+            return $cwd . DIRECTORY_SEPARATOR . 'routes';
+        }
+
+        return null;
     }
 
     public function use(MiddlewareInterface|callable $middleware): self
@@ -53,6 +147,9 @@ class App implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        // Auto-load route files before handling request
+        $this->loadRoutes();
+
         if ($this->eventDispatcher !== null) {
             $this->eventDispatcher->dispatch(new RequestReceivedEvent($request));
         }
