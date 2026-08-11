@@ -61,6 +61,12 @@ class AppBuilder
      */
     public function create(): App
     {
+        // 0. Load .env environment variables
+        $envFile = $this->basePath . '/.env';
+        if (file_exists($envFile) && class_exists(\Switch\Config\Env::class)) {
+            \Switch\Config\Env::load($envFile);
+        }
+
         // 1. Initialize Configuration
         $configPath = $this->basePath . '/config';
         if (class_exists(\Switch\Config\Config::class)) {
