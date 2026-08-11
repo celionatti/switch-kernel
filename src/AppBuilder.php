@@ -103,7 +103,8 @@ class AppBuilder
             $errorHandler = \Switch\ErrorHandler\ErrorHandler::register();
             $errorHandler->setDebug(true);
             if ($this->exceptionConfigurator !== null) {
-                ($this->exceptionConfigurator)($errorHandler);
+                $exceptionsCollector = new Config\ExceptionsCollector($errorHandler);
+                ($this->exceptionConfigurator)($exceptionsCollector);
             }
         }
 
@@ -116,7 +117,11 @@ class AppBuilder
         $app->setBasePath($this->basePath);
 
         if ($this->middlewareConfigurator !== null) {
-            ($this->middlewareConfigurator)($app);
+            $middlewareCollector = new Config\MiddlewareCollector();
+            ($this->middlewareConfigurator)($middlewareCollector);
+            foreach ($middlewareCollector->getGlobalMiddleware() as $middleware) {
+                $app->use($middleware);
+            }
         }
 
         return $app;
