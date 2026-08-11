@@ -42,6 +42,14 @@ class App implements RequestHandlerInterface
     }
 
     /**
+     * Fluent application builder entry point.
+     */
+    public static function configure(string $basePath): AppBuilder
+    {
+        return new AppBuilder($basePath);
+    }
+
+    /**
      * Set the application base path (project root directory).
      * Route files will be loaded from {basePath}/routes/
      */
