@@ -128,6 +128,9 @@ class AppBuilder
         $cachePath = $this->basePath . '/storage/views';
         if (is_dir($viewsPath) && class_exists(\Switch\View\Engine\ViewEngine::class)) {
             $viewEngine = new \Switch\View\Engine\ViewEngine($viewsPath, $cachePath);
+            $appEnv = function_exists('env') ? (string) env('APP_ENV', 'development') : 'development';
+            $appDebug = function_exists('env') ? (bool) env('APP_DEBUG', true) : true;
+            $viewEngine->setDebug($appDebug && $appEnv !== 'production');
             \Switch\View\View::setEngine($viewEngine);
         }
 
