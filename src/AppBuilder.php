@@ -85,16 +85,41 @@ class AppBuilder
         }
 
         // 2. Initialize Database Connection if configured
-        $dbFile = $this->basePath . '/database/database.sqlite';
-        if (file_exists($dbFile) || is_dir(dirname($dbFile))) {
-            if (!is_dir(dirname($dbFile))) {
-                @mkdir(dirname($dbFile), 0777, true);
-            }
-            if (class_exists(\Switch\Database\Connection\Connection::class)) {
-                $connection = \Switch\Database\Connection\Connection::sqlite($dbFile);
-                if (class_exists(\Switch\Database\ORM\Model::class)) {
-                    \Switch\Database\ORM\Model::setConnection($connection);
+        if (class_exists(\Switch\Database\Connection\Connection::class)) {
+            $connection = null;
+            $dbConfigFile = $this->basePath . '/config/database.php';
+
+            if (file_exists($dbConfigFile)) {
+                $dbConfig = require $dbConfigFile;
+                $defaultDriver = $dbConfig['default'] ?? 'sqlite';
+                $connOpts = $dbConfig['connections'][$defaultDriver] ?? null;
+
+                if ($connOpts !== null) {
+                    if ($defaultDriver === 'sqlite' && isset($connOpts['database'])) {
+                        $dbPath = $connOpts['database'];
+                        if ($dbPath !== ':memory:' && !str_contains($dbPath, '::memory::')) {
+                            $dir = dirname($dbPath);
+                            if (!is_dir($dir)) {
+                                @mkdir($dir, 0777, true);
+                            }
+                        }
+                    }
+                    $connection = \Switch\Database\Connection\Connection::fromArray(
+                        array_merge(['driver' => $defaultDriver], $connOpts)
+                    );
                 }
+            }
+
+            if ($connection === null) {
+                $dbFile = $this->basePath . '/database/database.sqlite';
+                if (!is_dir(dirname($dbFile))) {
+                    @mkdir(dirname($dbFile), 0777, true);
+                }
+                $connection = \Switch\Database\Connection\Connection::sqlite($dbFile);
+            }
+
+            if (class_exists(\Switch\Database\ORM\Model::class)) {
+                \Switch\Database\ORM\Model::setConnection($connection);
             }
         }
 
