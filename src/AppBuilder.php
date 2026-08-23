@@ -62,15 +62,24 @@ class AppBuilder
     public function create(): App
     {
         // 0. Load .env environment variables
-        if (class_exists(\Switch\Config\Env::class)) {
-            if (!function_exists('env')) {
-                $configHelpers = dirname((new \ReflectionClass(\Switch\Config\Env::class))->getFileName()) . '/helpers.php';
-                if (file_exists($configHelpers)) {
-                    require_once $configHelpers;
+        if (!function_exists('env') && class_exists(\Switch\Config\Env::class)) {
+            $configHelpers = dirname((new \ReflectionClass(\Switch\Config\Env::class))->getFileName()) . '/helpers.php';
+            if (file_exists($configHelpers)) {
+                require_once $configHelpers;
+            }
+        }
+
+        $envFile = $this->basePath . '/.env';
+        if (file_exists($envFile)) {
+            if (class_exists(\Dotenv\Dotenv::class)) {
+                try {
+                    \Dotenv\Dotenv::createMutable($this->basePath)->safeLoad();
+                } catch (\Throwable) {
+                    // Ignored
                 }
             }
-            $envFile = $this->basePath . '/.env';
-            if (file_exists($envFile)) {
+
+            if (class_exists(\Switch\Config\Env::class)) {
                 \Switch\Config\Env::load($envFile);
             }
         }
