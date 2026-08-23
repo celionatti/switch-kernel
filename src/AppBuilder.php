@@ -57,11 +57,24 @@ class AppBuilder
     }
 
     /**
-     * Bootstrap and create the App instance with engine services.
      */
     public function create(): App
     {
-        // 0. Load .env environment variables
+        // 0. Ensure Application PSR-4 autoloader is active for $basePath/app
+        $appDir = $this->basePath . '/app';
+        if (is_dir($appDir)) {
+            spl_autoload_register(function (string $class) use ($appDir): void {
+                if (str_starts_with($class, 'App\\')) {
+                    $relative = substr($class, 4);
+                    $file = $appDir . '/' . str_replace('\\', '/', $relative) . '.php';
+                    if (file_exists($file)) {
+                        require_once $file;
+                    }
+                }
+            });
+        }
+
+        // 0.1. Load .env environment variables
         if (!function_exists('env') && class_exists(\Switch\Config\Env::class)) {
             $configHelpers = dirname((new \ReflectionClass(\Switch\Config\Env::class))->getFileName()) . '/helpers.php';
             if (file_exists($configHelpers)) {
