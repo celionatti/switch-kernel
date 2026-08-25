@@ -179,6 +179,27 @@ class App implements RequestHandlerInterface
             $stack[] = new \Switch\ErrorHandler\Middleware\ErrorHandlerMiddleware($errorHandler);
         }
 
+        // Auto-detect and register switch/debugbar if installed
+        if (class_exists(\Switch\DebugBar\Http\Middleware\DebugBarMiddleware::class)) {
+            $debug = true;
+            if ($this->container !== null && $this->container->has(\Switch\Config\Config::class)) {
+                /** @var \Switch\Config\Config $config */
+                $config = $this->container->get(\Switch\Config\Config::class);
+                $debug = (bool) $config->get('app.debug', true);
+            } elseif (function_exists('env')) {
+                $debug = (bool) env('APP_DEBUG', true);
+            } elseif (defined('APP_DEBUG')) {
+                $debug = (bool) APP_DEBUG;
+            }
+
+            if ($debug) {
+                \Switch\DebugBar\DebugBar::getInstance()->enable();
+                $stack[] = new \Switch\DebugBar\Http\Middleware\DebugBarMiddleware();
+            } else {
+                \Switch\DebugBar\DebugBar::getInstance()->disable();
+            }
+        }
+
         foreach ($this->middlewareStack as $middleware) {
             $stack[] = $middleware;
         }

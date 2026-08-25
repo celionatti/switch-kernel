@@ -29,6 +29,24 @@ class RoutingMiddleware implements MiddlewareInterface
         try {
             $match = $this->router->match($request->getMethod(), $request->getUri()->getPath());
 
+            // Auto-feed RouteCollector if DebugBar is active
+            if (class_exists(\Switch\DebugBar\DebugBar::class)) {
+                $bar = \Switch\DebugBar\DebugBar::getInstance();
+                if ($bar->isEnabled() && $bar->hasCollector('route')) {
+                    $routeCollector = $bar->getCollector('route');
+                    if ($routeCollector instanceof \Switch\DebugBar\Collectors\RouteCollector) {
+                        $routeCollector->setRouteData(
+                            uri: method_exists($match, 'getUri') ? $match->getUri() : $request->getUri()->getPath(),
+                            method: $request->getMethod(),
+                            action: $match->getHandler(),
+                            middleware: $match->getMiddleware(),
+                            parameters: $match->getParameters(),
+                            name: method_exists($match, 'getName') ? $match->getName() : null
+                        );
+                    }
+                }
+            }
+
             // Pass route parameters as request attributes
             foreach ($match->getParameters() as $key => $value) {
                 $request = $request->withAttribute($key, $value);
