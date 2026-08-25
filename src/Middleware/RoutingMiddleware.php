@@ -76,6 +76,13 @@ class RoutingMiddleware implements MiddlewareInterface
                         $handler = [$instance, $method];
                     }
 
+                    // Resolve standalone invokable class string (e.g. Action::class)
+                    if (is_string($handler) && class_exists($handler)) {
+                        $handler = $this->container !== null && $this->container->has($handler)
+                            ? $this->container->get($handler)
+                            : new $handler();
+                    }
+
                     // Resolve [Controller::class, 'method'] array syntax
                     if (is_array($handler) && count($handler) === 2 && is_string($handler[0])) {
                         [$class, $method] = $handler;
@@ -86,7 +93,8 @@ class RoutingMiddleware implements MiddlewareInterface
                     }
 
                     if (is_callable($handler)) {
-                        $result = $handler($request);
+                        $params = $request->getAttributes();
+                        $result = $handler($request, $params);
 
                         if ($result instanceof ResponseInterface) {
                             return $result;
