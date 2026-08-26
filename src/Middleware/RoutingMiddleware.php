@@ -94,7 +94,8 @@ class RoutingMiddleware implements MiddlewareInterface
 
                     if (is_callable($handler)) {
                         $params = $request->getAttributes();
-                        $result = $handler($request, $params);
+                        $args = $this->resolveCallableArguments($handler, $request, $params);
+                        $result = $handler(...$args);
 
                         if ($result instanceof ResponseInterface) {
                             return $result;
@@ -110,6 +111,56 @@ class RoutingMiddleware implements MiddlewareInterface
                     }
 
                     return new Response(500, [], Stream::create('Invalid Route Handler'));
+                }
+
+                /**
+                 * Dynamically resolve arguments for controller method or closure.
+                 *
+                 * @param callable $callable
+                 * @param ServerRequestInterface $request
+                 * @param array<string, mixed> $routeParams
+                 * @return array<int, mixed>
+                 */
+                private function resolveCallableArguments(callable $callable, ServerRequestInterface $request, array $routeParams): array
+                {
+                    if (is_array($callable)) {
+                        $ref = new \ReflectionMethod($callable[0], $callable[1]);
+                    } elseif (is_object($callable) && !$callable instanceof \Closure) {
+                        $ref = new \ReflectionMethod($callable, '__invoke');
+                    } else {
+                        $ref = new \ReflectionFunction($callable);
+                    }
+
+                    $args = [];
+                    foreach ($ref->getParameters() as $param) {
+                        $name = $param->getName();
+                        $type = $param->getType();
+                        $typeName = $type instanceof \ReflectionNamedType ? $type->getName() : null;
+
+                        if ($typeName && (is_subclass_of($typeName, ServerRequestInterface::class) || $typeName === ServerRequestInterface::class)) {
+                            $args[] = $request;
+                        } elseif ($name === 'request') {
+                            $args[] = $request;
+                        } elseif ($name === 'params' && $typeName === 'array') {
+                            $args[] = $routeParams;
+                        } elseif (isset($routeParams[$name])) {
+                            $val = $routeParams[$name];
+                            if ($typeName === 'int') {
+                                $val = (int) $val;
+                            } elseif ($typeName === 'float') {
+                                $val = (float) $val;
+                            } elseif ($typeName === 'bool') {
+                                $val = (bool) $val;
+                            }
+                            $args[] = $val;
+                        } elseif ($param->isDefaultValueAvailable()) {
+                            $args[] = $param->getDefaultValue();
+                        } else {
+                            $args[] = $request;
+                        }
+                    }
+
+                    return $args;
                 }
             });
 
