@@ -58,11 +58,63 @@ class MiddlewareCollector
     }
 
     /**
+     * @var array<string, array<int, mixed>>
+     */
+    private array $groups = [
+        'web' => [],
+        'api' => [],
+    ];
+
+    /**
+     * Define or append middleware to the 'web' route group.
+     */
+    public function web(mixed ...$middleware): self
+    {
+        return $this->group('web', ...$middleware);
+    }
+
+    /**
+     * Define or append middleware to the 'api' route group.
+     */
+    public function api(mixed ...$middleware): self
+    {
+        return $this->group('api', ...$middleware);
+    }
+
+    /**
+     * Define or append middleware to a named route group.
+     */
+    public function group(string $name, mixed ...$middleware): self
+    {
+        if (!isset($this->groups[$name])) {
+            $this->groups[$name] = [];
+        }
+
+        foreach ($middleware as $item) {
+            if (is_array($item)) {
+                $this->groups[$name] = array_merge($this->groups[$name], $item);
+            } else {
+                $this->groups[$name][] = $item;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
      * @return array<int, mixed>
      */
     public function getGlobalMiddleware(): array
     {
         return $this->globalMiddleware;
+    }
+
+    /**
+     * @return array<string, array<int, mixed>>
+     */
+    public function getGroups(): array
+    {
+        return $this->groups;
     }
 
     /**

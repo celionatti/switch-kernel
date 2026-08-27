@@ -48,6 +48,11 @@ class AppBuilder
     }
 
     /**
+     * @var array<int, string|object>
+     */
+    private array $providers = [];
+
+    /**
      * Configure application exception & error handling.
      */
     public function withExceptions(callable $callback): self
@@ -57,6 +62,18 @@ class AppBuilder
     }
 
     /**
+     * Register Service Providers for the application.
+     *
+     * @param array<int, string|object> $providers
+     */
+    public function withProviders(array $providers): self
+    {
+        $this->providers = array_merge($this->providers, $providers);
+        return $this;
+    }
+
+    /**
+     * Build and return the configured App instance.
      */
     public function create(): App
     {
@@ -166,12 +183,46 @@ class AppBuilder
             }
         }
 
-        // 5. Create Router & App Kernel
+        // 5. Initialize Service Container & Service Providers
+        $container = null;
+        if (class_exists(\Switch\Container\Container::class)) {
+            $container = new \Switch\Container\Container();
+
+            // Load providers from config/app.php if defined
+            $appConfigFile = $this->basePath . '/config/app.php';
+            if (file_exists($appConfigFile)) {
+                $appConfig = require $appConfigFile;
+                if (isset($appConfig['providers']) && is_array($appConfig['providers'])) {
+                    $this->providers = array_merge($this->providers, $appConfig['providers']);
+                }
+            }
+
+            foreach ($this->providers as $provider) {
+                if (is_string($provider) && class_exists($provider)) {
+                    $instance = new $provider();
+                    if ($instance instanceof \Switch\Container\ServiceProviderInterface) {
+                        $container->register($instance);
+                    }
+                    if (method_exists($instance, 'boot')) {
+                        $instance->boot($container);
+                    }
+                } elseif (is_object($provider)) {
+                    if ($provider instanceof \Switch\Container\ServiceProviderInterface) {
+                        $container->register($provider);
+                    }
+                    if (method_exists($provider, 'boot')) {
+                        $provider->boot($container);
+                    }
+                }
+            }
+        }
+
+        // 6. Create Router & App Kernel
         $router = class_exists(\Switch\Router\Facade\Route::class)
             ? \Switch\Router\Facade\Route::getRouter()
             : null;
 
-        $app = new App(router: $router);
+        $app = new App(container: $container, router: $router);
         $app->setBasePath($this->basePath);
 
         if ($this->middlewareConfigurator !== null) {
@@ -179,6 +230,20 @@ class AppBuilder
             ($this->middlewareConfigurator)($middlewareCollector);
             foreach ($middlewareCollector->getGlobalMiddleware() as $middleware) {
                 $app->use($middleware);
+            }
+
+            $groups = $middlewareCollector->getGroups();
+            if (!empty($groups['web']) || !empty($groups['api'])) {
+                $app->configureRoutes(function ($loader) use ($groups) {
+                    if ($loader instanceof \Switch\Router\RouteLoader) {
+                        if (!empty($groups['web'])) {
+                            $loader->webMiddleware($groups['web']);
+                        }
+                        if (!empty($groups['api'])) {
+                            $loader->apiMiddleware($groups['api']);
+                        }
+                    }
+                });
             }
         }
 
