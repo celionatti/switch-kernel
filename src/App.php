@@ -132,7 +132,7 @@ class App implements RequestHandlerInterface
         return null;
     }
 
-    public function use(MiddlewareInterface|callable $middleware): self
+    public function use(MiddlewareInterface|callable|string $middleware): self
     {
         $this->middlewareStack[] = $middleware;
         return $this;
@@ -201,6 +201,13 @@ class App implements RequestHandlerInterface
         }
 
         foreach ($this->middlewareStack as $middleware) {
+            if (is_string($middleware)) {
+                if ($this->container !== null && $this->container->has($middleware)) {
+                    $middleware = $this->container->get($middleware);
+                } elseif (class_exists($middleware)) {
+                    $middleware = new $middleware();
+                }
+            }
             $stack[] = $middleware;
         }
 

@@ -54,6 +54,10 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $middleware = $this->middlewareStack[$this->index];
         $this->index++;
 
+        if (is_string($middleware) && class_exists($middleware)) {
+            $middleware = new $middleware();
+        }
+
         if ($middleware instanceof MiddlewareInterface) {
             return $middleware->process($request, $this);
         }
