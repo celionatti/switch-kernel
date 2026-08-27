@@ -200,6 +200,25 @@ class App implements RequestHandlerInterface
             }
         }
 
+        // Auto-detect and register switch/diagram if installed
+        if (class_exists(\Switch\Diagram\Http\Middleware\DiagramMiddleware::class)) {
+            $diagramEnabled = true;
+            if ($this->container !== null && $this->container->has(\Switch\Config\Config::class)) {
+                /** @var \Switch\Config\Config $config */
+                $config = $this->container->get(\Switch\Config\Config::class);
+                $diagramEnabled = (bool) $config->get('diagram.enabled', (bool) $config->get('app.debug', true));
+            } elseif (function_exists('env')) {
+                $diagramEnabled = (bool) env('DIAGRAM_ENABLED', env('APP_ENV', 'development') !== 'production');
+            }
+
+            if ($diagramEnabled) {
+                \Switch\Diagram\Diagram::getInstance()->enable();
+                $stack[] = new \Switch\Diagram\Http\Middleware\DiagramMiddleware();
+            } else {
+                \Switch\Diagram\Diagram::getInstance()->disable();
+            }
+        }
+
         foreach ($this->middlewareStack as $middleware) {
             if (is_string($middleware)) {
                 if ($this->container !== null && $this->container->has($middleware)) {
