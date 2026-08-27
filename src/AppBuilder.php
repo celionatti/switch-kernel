@@ -89,6 +89,17 @@ class AppBuilder
                     }
                 }
             });
+
+            // Auto-discover and load procedural helper/utility scripts in app/Utils and app/Helpers
+            $utilsDirs = [$appDir . '/Utils', $appDir . '/Helpers'];
+            foreach ($utilsDirs as $dir) {
+                if (is_dir($dir)) {
+                    $files = glob($dir . '/*.php') ?: [];
+                    foreach ($files as $file) {
+                        require_once $file;
+                    }
+                }
+            }
         }
 
         // 0.1. Load .env environment variables
